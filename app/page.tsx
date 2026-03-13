@@ -652,27 +652,54 @@ export default function Home() {
         </section>
 
         {/* ── Footer ───────────────────────────────────────────────── */}
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: "0.8125rem",
-            color: "var(--text-subtle)",
-          }}
-        >
-          Only works with{" "}
-          <code
+        <div style={{ textAlign: "center" }}>
+          <p
             style={{
-              fontFamily: "monospace",
               fontSize: "0.8125rem",
-              backgroundColor: "var(--surface-2)",
-              padding: "1px 5px",
-              borderRadius: 4,
+              color: "var(--text-subtle)",
+              marginBottom: 12,
             }}
           >
-            lms.koreatech.ac.kr/local/ubdoc/
-          </code>{" "}
-          links.
-        </p>
+            Only works with{" "}
+            <code
+              style={{
+                fontFamily: "monospace",
+                fontSize: "0.8125rem",
+                backgroundColor: "var(--surface-2)",
+                padding: "1px 5px",
+                borderRadius: 4,
+              }}
+            >
+              lms.koreatech.ac.kr/local/ubdoc/
+            </code>{" "}
+            links.
+          </p>
+          <p style={{ fontSize: "0.8125rem", color: "var(--text-subtle)" }}>
+            Made with{" "}
+            <span style={{ color: "#ef4444" }} aria-label="love">
+              ♥
+            </span>{" "}
+            by{" "}
+            <a
+              href="https://salomon.reinvent-labs.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "var(--accent)",
+                textDecoration: "none",
+                fontWeight: 500,
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.textDecoration = "underline")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.textDecoration = "none")
+              }
+            >
+              Salomon Diei
+            </a>
+          </p>
+        </div>
       </div>
 
       {/* Spinner keyframe — injected inline since we're not using Tailwind animate */}
