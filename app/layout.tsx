@@ -4,6 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "LMS Downloader — KoreaTech",
   description: "Download files from KoreaTech LMS ubdoc links without logging in.",
+  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({
