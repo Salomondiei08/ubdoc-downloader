@@ -2,10 +2,18 @@
  * Core logic for interacting with the KoreaTech LMS ubdoc service.
  *
  * The ubdoc system exposes two unauthenticated endpoints:
- *   - worker.php  — returns file metadata (real name, download eligibility)
+ *   - worker.php  — returns file metadata as JSON (real name, download eligibility)
  *   - download.php — streams the actual file bytes
  *
  * Both accept id, tp, and pg query params extracted from any ubdoc page URL.
+ *
+ * worker.php JSON shape (confirmed from live response):
+ * {
+ *   file_realname: "Week 02 Point Operators.pdf",
+ *   file_download: "1",   // "1" = downloadable
+ *   state_code: "100",
+ *   ...
+ * }
  */
 
 const WORKER_URL = "https://lms.koreatech.ac.kr/local/ubdoc/worker.php";
@@ -20,19 +28,32 @@ export interface FileInfo extends UbdocParams {
   realName: string;
 }
 
+interface WorkerResponse {
+  file_realname?: string;
+  file_download?: string;
+  state_code?: string;
+  state_message?: string;
+}
+
 /**
  * Extract id/tp/pg from any LMS ubdoc URL.
  *
- * Handles both forms:
+ * Accepts both fully-qualified and protocol-less forms:
  *   https://lms.koreatech.ac.kr/local/ubdoc/?id=403298&tp=m&pg=ubfile
- *   https://lms.koreatech.ac.kr/local/ubdoc/index.php?id=403298&tp=m&pg=ubfile
+ *   lms.koreatech.ac.kr/local/ubdoc/?id=403298&tp=m&pg=ubfile
  *
- * Returns null if the URL is not a recognisable ubdoc link or is missing required params.
+ * Returns null if the URL is not a recognisable ubdoc link or is missing params.
  */
 export function parseUbdocUrl(raw: string): UbdocParams | null {
+  const trimmed = raw.trim();
+
+  // If no protocol is present, prepend https:// so new URL() can parse it
+  const candidate =
+    /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
   let url: URL;
   try {
-    url = new URL(raw.trim());
+    url = new URL(candidate);
   } catch {
     return null;
   }
@@ -57,8 +78,8 @@ export function parseUbdocUrl(raw: string): UbdocParams | null {
 /**
  * Call worker.php to get the real filename and confirm the file can be downloaded.
  *
- * worker.php responds with XML that includes a <realName> element and a
- * <downEnable> flag. We parse both to surface a clean FileInfo or throw.
+ * Returns a FileInfo on success, throws NotDownloadableError if the file
+ * exists but is not available for download, or a generic Error otherwise.
  */
 export async function resolveFile(
   id: string,
@@ -69,7 +90,11 @@ export async function resolveFile(
 
   const res = await fetch(WORKER_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      // Send a plausible Referer so the LMS doesn't reject the request
+      Referer: `https://lms.koreatech.ac.kr/local/ubdoc/?id=${id}&tp=${tp}&pg=${pg}`,
+    },
     body: body.toString(),
   });
 
@@ -77,23 +102,23 @@ export async function resolveFile(
     throw new Error(`worker.php responded with HTTP ${res.status}`);
   }
 
-  const xml = await res.text();
+  // worker.php returns JSON (not XML)
+  let data: WorkerResponse;
+  try {
+    data = (await res.json()) as WorkerResponse;
+  } catch {
+    throw new Error("Unexpected response format from the LMS server");
+  }
 
-  // Extract <realName> — the original filename
-  const nameMatch = xml.match(/<realName[^>]*>([\s\S]*?)<\/realName>/i);
-  const realName = nameMatch ? nameMatch[1].trim() : "";
-
+  const realName = data.file_realname?.trim() ?? "";
   if (!realName) {
     throw new Error("Could not read file name from worker response");
   }
 
-  // Extract <downEnable> — "1" means downloadable
-  const enableMatch = xml.match(/<downEnable[^>]*>([\s\S]*?)<\/downEnable>/i);
-  const downEnable = enableMatch ? enableMatch[1].trim() : "0";
-
-  if (downEnable !== "1") {
+  // file_download: "1" means the file is available for download
+  if (data.file_download !== "1") {
     throw new NotDownloadableError(
-      `Download not enabled for this file (downEnable=${downEnable})`
+      `Download not enabled for this file (file_download=${data.file_download})`
     );
   }
 

@@ -203,7 +203,7 @@ export default function Home() {
           <div style={{ display: "flex", gap: 8 }}>
             <input
               ref={inputRef}
-              type="url"
+              type="text"
               value={url}
               onChange={(e) => {
                 setUrl(e.target.value);
